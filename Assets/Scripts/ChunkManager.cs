@@ -14,6 +14,7 @@ public class ChunkManager : MonoBehaviour
     private Block[,,] blocks;
     private WorldManager worldManager;
     private Vector2Int chunkCoord;
+    public int currentSize { get; private set; }
 
     public virtual void Initialize(WorldManager worldManager, int x, int y)
     {
@@ -31,9 +32,6 @@ public class ChunkManager : MonoBehaviour
 
     public void createRock()
     {
-        List<Vector3> vertices = new List<Vector3>();
-        List<Vector2> uvs = new List<Vector2>();
-        List<int> tris = new List<int>();
         for (int i = 0; i < blocks.GetLength(0); i++)
         {
             for (int j = 0; j < blocks.GetLength(1); j++)
@@ -46,14 +44,24 @@ public class ChunkManager : MonoBehaviour
                     }
                 }
             }
-        } 
-        for (int i = 0; i < blocks.GetLength(0); i++)
+        }
+        drawChunk(4);
+    }
+
+    public void drawChunk(int size)
+    {
+        if (size <= 0 || size > WorldManager.chunkSize) return;
+        currentSize = size;
+        List<Vector3> vertices = new List<Vector3>();
+        List<Vector2> uvs = new List<Vector2>();
+        List<int> tris = new List<int>();
+        for (int i = 0; i < blocks.GetLength(0); i += size)
         {
-            for (int j = 0; j < blocks.GetLength(1); j++)
+            for (int j = 0; j < blocks.GetLength(1); j += size)
             {
-                for (int k = 0; k < blocks.GetLength(2); k++)
+                for (int k = 0; k < blocks.GetLength(2); k += size)
                 {
-                    drawBlock(i, j, k, vertices, uvs, tris);
+                    drawBlock(i, j, k, vertices, uvs, tris, size);
                 }
             }
         }
@@ -66,18 +74,18 @@ public class ChunkManager : MonoBehaviour
         chunkMesh.mesh = newMesh;
     }
 
-    private void drawBlock(int x, int y, int z, List<Vector3> vertices, List<Vector2> uvs, List<int> tris)
+    private void drawBlock(int x, int y, int z, List<Vector3> vertices, List<Vector2> uvs, List<int> tris, int size)
     {
         if (blocks[x,y,z] == null)
         {
             return;
         }
-        if (x <= 0 || blocks[x - 1,y,z] == null)
+        if (x < size || blocks[x - size, y, z] == null)
         {
-            vertices.Add(new Vector3(x - 0.5f, y - 0.5f, z - 0.5f));
-            vertices.Add(new Vector3(x - 0.5f, y + 0.5f, z - 0.5f));
-            vertices.Add(new Vector3(x - 0.5f, y + 0.5f, z + 0.5f));
-            vertices.Add(new Vector3(x - 0.5f, y - 0.5f, z + 0.5f));
+            vertices.Add(new Vector3(x, y , z));
+            vertices.Add(new Vector3(x, y + size, z));
+            vertices.Add(new Vector3(x, y + size, z + size));
+            vertices.Add(new Vector3(x, y , z + size));
             uvs.Add(new Vector2(0, 0));
             uvs.Add(new Vector2(1, 0));
             uvs.Add(new Vector2(1, 1));
@@ -90,12 +98,12 @@ public class ChunkManager : MonoBehaviour
             tris.Add(vertCount - 2);
             tris.Add(vertCount - 4);
         }
-        if (x >= WorldManager.chunkSize - 1 || blocks[x + 1, y, z] == null)
+        if (x > WorldManager.chunkSize - size - 1|| blocks[x + size, y, z] == null)
         {
-            vertices.Add(new Vector3(x + 0.5f, y - 0.5f, z + 0.5f));
-            vertices.Add(new Vector3(x + 0.5f, y + 0.5f, z + 0.5f));
-            vertices.Add(new Vector3(x + 0.5f, y + 0.5f, z - 0.5f));
-            vertices.Add(new Vector3(x + 0.5f, y - 0.5f, z - 0.5f));
+            vertices.Add(new Vector3(x + size, y, z + size));
+            vertices.Add(new Vector3(x + size, y + size, z + size));
+            vertices.Add(new Vector3(x + size, y + size, z));
+            vertices.Add(new Vector3(x + size, y, z));
             uvs.Add(new Vector2(0, 0));
             uvs.Add(new Vector2(1, 0));
             uvs.Add(new Vector2(1, 1));
@@ -108,12 +116,12 @@ public class ChunkManager : MonoBehaviour
             tris.Add(vertCount - 2);
             tris.Add(vertCount - 4);
         }
-        if (y <= 0 || blocks[x, y - 1, z] == null)
+        if (y < size || blocks[x, y - size, z] == null)
         {
-            vertices.Add(new Vector3(x - 0.5f, y - 0.5f, z - 0.5f));
-            vertices.Add(new Vector3(x - 0.5f, y - 0.5f, z + 0.5f));
-            vertices.Add(new Vector3(x + 0.5f, y - 0.5f, z + 0.5f));
-            vertices.Add(new Vector3(x + 0.5f, y - 0.5f, z - 0.5f));
+            vertices.Add(new Vector3(x, y, z));
+            vertices.Add(new Vector3(x, y, z + size));
+            vertices.Add(new Vector3(x + size, y, z + size));
+            vertices.Add(new Vector3(x + size, y, z));
             uvs.Add(new Vector2(0, 0));
             uvs.Add(new Vector2(1, 0));
             uvs.Add(new Vector2(1, 1));
@@ -126,12 +134,12 @@ public class ChunkManager : MonoBehaviour
             tris.Add(vertCount - 2);
             tris.Add(vertCount - 4);
         }
-        if (y >= WorldManager.chunkSize - 1 || blocks[x, y + 1, z] == null)
+        if (y > WorldManager.chunkSize - size - 1|| blocks[x, y + size, z] == null)
         {
-            vertices.Add(new Vector3(x + 0.5f, y + 0.5f, z - 0.5f));
-            vertices.Add(new Vector3(x + 0.5f, y + 0.5f, z + 0.5f));
-            vertices.Add(new Vector3(x - 0.5f, y + 0.5f, z + 0.5f));
-            vertices.Add(new Vector3(x - 0.5f, y + 0.5f, z - 0.5f));
+            vertices.Add(new Vector3(x + size, y + size, z));
+            vertices.Add(new Vector3(x + size, y + size, z + size));
+            vertices.Add(new Vector3(x, y + size, z + size));
+            vertices.Add(new Vector3(x, y + size, z));
             uvs.Add(new Vector2(0, 0));
             uvs.Add(new Vector2(1, 0));
             uvs.Add(new Vector2(1, 1));
@@ -144,12 +152,12 @@ public class ChunkManager : MonoBehaviour
             tris.Add(vertCount - 2);
             tris.Add(vertCount - 4);
         }
-        if (z <= 0 || blocks[x, y, z - 1] == null)
+        if (z < size || blocks[x, y, z - size] == null)
         {
-            vertices.Add(new Vector3(x - 0.5f, y - 0.5f, z - 0.5f));
-            vertices.Add(new Vector3(x - 0.5f, y + 0.5f, z - 0.5f));
-            vertices.Add(new Vector3(x + 0.5f, y + 0.5f, z - 0.5f));
-            vertices.Add(new Vector3(x + 0.5f, y - 0.5f, z - 0.5f));
+            vertices.Add(new Vector3(x , y, z));
+            vertices.Add(new Vector3(x, y + size, z));
+            vertices.Add(new Vector3(x + size, y + size, z));
+            vertices.Add(new Vector3(x + size, y, z));
             uvs.Add(new Vector2(0, 0));
             uvs.Add(new Vector2(1, 0));
             uvs.Add(new Vector2(1, 1));
@@ -162,12 +170,12 @@ public class ChunkManager : MonoBehaviour
             tris.Add(vertCount - 2);
             tris.Add(vertCount - 1);
         }
-        if (z >= WorldManager.chunkSize - 1 || blocks[x, y, z + 1] == null)
+        if (z > WorldManager.chunkSize - size - 1|| blocks[x, y, z + size] == null)
         {
-            vertices.Add(new Vector3(x + 0.5f, y - 0.5f, z + 0.5f));
-            vertices.Add(new Vector3(x + 0.5f, y + 0.5f, z + 0.5f));
-            vertices.Add(new Vector3(x - 0.5f, y + 0.5f, z + 0.5f));
-            vertices.Add(new Vector3(x - 0.5f, y - 0.5f, z + 0.5f));
+            vertices.Add(new Vector3(x + size, y, z + size));
+            vertices.Add(new Vector3(x + size, y + size, z + size));
+            vertices.Add(new Vector3(x, y + size, z + size));
+            vertices.Add(new Vector3(x, y, z + size));
             uvs.Add(new Vector2(0, 0));
             uvs.Add(new Vector2(1, 0));
             uvs.Add(new Vector2(1, 1));

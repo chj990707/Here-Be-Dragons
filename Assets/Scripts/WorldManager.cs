@@ -4,9 +4,9 @@ using UnityEngine;
 
 public class WorldManager : MonoBehaviour
 {
-    public const int chunkSize = 16;
-    public const int renderDist = 32;
-    public const float maxFrameLength = 0.03f;
+    public const int chunkSize = 32;
+    public const int renderDist = 48;
+    public const float maxFrameLength = 0.02f;
     [SerializeField]
     private GameObject chunk;
     [SerializeField]
@@ -18,6 +18,7 @@ public class WorldManager : MonoBehaviour
     public void Start()
     {
         loadedChunks.EnsureCapacity((renderDist + 1) * (renderDist + 1) * 4);
+        grid.cellSize = new Vector3(chunkSize, chunkSize, chunkSize);
         StartCoroutine("MapLoadingCoroutine");
     }
 
@@ -46,23 +47,56 @@ public class WorldManager : MonoBehaviour
             {
                 loadedChunks.Remove(key);
             }
-            for(int i = -renderDist; i <= renderDist; i++)
+            for(int i = 0; i < renderDist; i++)
             {
-                for (int j = -renderDist; j <= renderDist; j++)
+                for(int j = 0; j <= i * 8; j++)
                 {
+                    int loadX ,loadY ;
+                    if(j <= 2 * i)
+                    {
+                        loadX = j - i;
+                        loadY = -i;
+                    }
+                    else if(j <= 4 * i)
+                    {
+                        loadX = i;
+                        loadY = j - 3 * i;
+                    }
+                    else if(j <= 6 * i)
+                    {
+                        loadX = 5 * i - j;
+                        loadY = i;
+                    }
+                    else
+                    {
+                        loadX= -i;
+                        loadY= 7 * i - j;
+                    }
                     if (Time.realtimeSinceStartup - startTime > maxFrameLength)
                     {
                         break;
                     }
-                    if((i * i + j * j) < renderDist * renderDist && !loadedChunks.ContainsKey(CoordToKey(camX + i, camY + j)))
+                    ChunkManager loadChunk;
+                    if(!loadedChunks.TryGetValue(CoordToKey(camX + loadX, camY + loadY), out loadChunk))
                     {
-                        ChunkManager newChunk;
-                        if(!chunkPool.TryDequeue(out newChunk))
+                        if ((loadX * loadX + loadY * loadY) < renderDist * renderDist)
                         {
-                            newChunk = Instantiate(chunk).GetComponent<ChunkManager>();
+                            ChunkManager newChunk;
+                            if (!chunkPool.TryDequeue(out newChunk))
+                            {
+                                newChunk = Instantiate(chunk).GetComponent<ChunkManager>();
+                            }
+                            newChunk.Initialize(this, camX + loadX, camY + loadY);
+                            loadedChunks.Add(CoordToKey(camX + loadX, camY + loadY), newChunk);
                         }
-                        newChunk.Initialize(this, camX + i, camY + j);
-                        loadedChunks.Add(CoordToKey(camX + i, camY + j), newChunk);
+                    }
+                    else if ((loadX * loadX + loadY * loadY) < renderDist * renderDist / 16 && loadChunk.currentSize > 1)
+                    {
+                        loadChunk.drawChunk(1);
+                    }
+                    else if ((loadX * loadX + loadY * loadY) < renderDist * renderDist / 8 && loadChunk.currentSize > 2)
+                    {
+                        loadChunk.drawChunk(2);
                     }
                 }
             }
