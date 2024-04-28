@@ -94,7 +94,7 @@ public class WorldManager : MonoBehaviour
                     {
                         loadChunk.drawChunk(1);
                     }
-                    else if ((loadX * loadX + loadY * loadY) < renderDist * renderDist / 8 && loadChunk.currentSize > 2)
+                    else if ((loadX * loadX + loadY * loadY) < renderDist * renderDist / 4 && loadChunk.currentSize > 2)
                     {
                         loadChunk.drawChunk(2);
                     }

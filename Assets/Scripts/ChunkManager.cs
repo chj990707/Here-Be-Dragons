@@ -18,7 +18,7 @@ public class ChunkManager : MonoBehaviour
 
     public virtual void Initialize(WorldManager worldManager, int x, int y)
     {
-        blocks = new Block[WorldManager.chunkSize, WorldManager.chunkSize, WorldManager.chunkSize];
+        blocks = new Block[WorldManager.chunkSize, WorldManager.chunkSize * 2, WorldManager.chunkSize];
         this.worldManager = worldManager;
         chunkCoord = new Vector2Int(x, y);
         transform.localPosition = worldManager.getGrid().CellToWorld(new Vector3Int(x, 0, y));
@@ -38,7 +38,7 @@ public class ChunkManager : MonoBehaviour
             {
                 for (int k = 0; k < blocks.GetLength(2); k++)
                 {
-                    if(Mathf.PerlinNoise((i + chunkCoord.x * WorldManager.chunkSize) / 20f, (k + chunkCoord.y * WorldManager.chunkSize) / 20f) * WorldManager.chunkSize / 2 + 1 > j)
+                    if(Mathf.PerlinNoise((i + chunkCoord.x * WorldManager.chunkSize) / 200f, (k + chunkCoord.y * WorldManager.chunkSize) / 200f) * WorldManager.chunkSize * 2 + 1 > j)
                     {
                         blocks[i, j, k] = new StoneBlock();
                     }
@@ -66,6 +66,7 @@ public class ChunkManager : MonoBehaviour
             }
         }
         Mesh newMesh = new Mesh();
+        newMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         newMesh.vertices = vertices.ToArray();
         newMesh.uv = uvs.ToArray();
         newMesh.triangles = tris.ToArray();
