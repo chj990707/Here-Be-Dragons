@@ -11,14 +11,14 @@ public class ChunkManager : MonoBehaviour
     protected GameObject initBlock;
     [SerializeField]
     protected MeshFilter chunkMesh;
-    private Block[,,] blocks;
+    private Block[] blocks;
     private WorldManager worldManager;
     private Vector2Int chunkCoord;
     public int currentSize { get; private set; }
 
     public virtual void Initialize(WorldManager worldManager, int x, int y)
     {
-        blocks = new Block[WorldManager.chunkSize, WorldManager.chunkSize * 2, WorldManager.chunkSize];
+        blocks = new Block[WorldManager.chunkSize * WorldManager.chunkSize * WorldManager.chunkSize];
         this.worldManager = worldManager;
         chunkCoord = new Vector2Int(x, y);
         transform.localPosition = worldManager.getGrid().CellToWorld(new Vector3Int(x, 0, y));
@@ -32,15 +32,15 @@ public class ChunkManager : MonoBehaviour
 
     public void createRock()
     {
-        for (int i = 0; i < blocks.GetLength(0); i++)
+        for (int i = 0; i < WorldManager.chunkSize; i++)
         {
-            for (int j = 0; j < blocks.GetLength(1); j++)
+            for (int j = 0; j < WorldManager.chunkSize; j++)
             {
-                for (int k = 0; k < blocks.GetLength(2); k++)
+                for (int k = 0; k < WorldManager.chunkSize; k++)
                 {
-                    if(Mathf.PerlinNoise((i + chunkCoord.x * WorldManager.chunkSize) / 200f, (k + chunkCoord.y * WorldManager.chunkSize) / 200f) * WorldManager.chunkSize * 2 + 1 > j)
+                    if(Mathf.PerlinNoise((i + chunkCoord.x * WorldManager.chunkSize) / 200f, (k + chunkCoord.y * WorldManager.chunkSize) / 200f) * WorldManager.chunkSize + 1 > j)
                     {
-                        blocks[i, j, k] = new StoneBlock();
+                        blocks[i * WorldManager.chunkSize * WorldManager.chunkSize + j * WorldManager.chunkSize + k] = new StoneBlock();
                     }
                 }
             }
@@ -55,11 +55,14 @@ public class ChunkManager : MonoBehaviour
         List<Vector3> vertices = new List<Vector3>();
         List<Vector2> uvs = new List<Vector2>();
         List<int> tris = new List<int>();
-        for (int i = 0; i < blocks.GetLength(0); i += size)
+        vertices.Capacity = 0x8000;
+        uvs.Capacity = 0x8000;
+        tris.Capacity = 0x8000;
+        for (int i = 0; i < WorldManager.chunkSize; i += size)
         {
-            for (int j = 0; j < blocks.GetLength(1); j += size)
+            for (int j = 0; j < WorldManager.chunkSize; j += size)
             {
-                for (int k = 0; k < blocks.GetLength(2); k += size)
+                for (int k = 0; k < WorldManager.chunkSize; k += size)
                 {
                     drawBlock(i, j, k, vertices, uvs, tris, size);
                 }
@@ -77,11 +80,11 @@ public class ChunkManager : MonoBehaviour
 
     private void drawBlock(int x, int y, int z, List<Vector3> vertices, List<Vector2> uvs, List<int> tris, int size)
     {
-        if (blocks[x,y,z] == null)
+        if (getBlock(x,y,z) == null)
         {
             return;
         }
-        if (x < size || blocks[x - size, y, z] == null)
+        if (x < size || getBlock(x - size, y, z) == null)
         {
             vertices.Add(new Vector3(x, y , z));
             vertices.Add(new Vector3(x, y + size, z));
@@ -99,7 +102,7 @@ public class ChunkManager : MonoBehaviour
             tris.Add(vertCount - 2);
             tris.Add(vertCount - 4);
         }
-        if (x > WorldManager.chunkSize - size - 1|| blocks[x + size, y, z] == null)
+        if (x > WorldManager.chunkSize - size - 1|| getBlock(x + size, y, z) == null)
         {
             vertices.Add(new Vector3(x + size, y, z + size));
             vertices.Add(new Vector3(x + size, y + size, z + size));
@@ -117,7 +120,7 @@ public class ChunkManager : MonoBehaviour
             tris.Add(vertCount - 2);
             tris.Add(vertCount - 4);
         }
-        if (y < size || blocks[x, y - size, z] == null)
+        if (y < size || getBlock(x, y - size, z) == null)
         {
             vertices.Add(new Vector3(x, y, z));
             vertices.Add(new Vector3(x, y, z + size));
@@ -135,7 +138,7 @@ public class ChunkManager : MonoBehaviour
             tris.Add(vertCount - 2);
             tris.Add(vertCount - 4);
         }
-        if (y > WorldManager.chunkSize - size - 1|| blocks[x, y + size, z] == null)
+        if (y > WorldManager.chunkSize - size - 1|| getBlock(x, y + size, z) == null)
         {
             vertices.Add(new Vector3(x + size, y + size, z));
             vertices.Add(new Vector3(x + size, y + size, z + size));
@@ -153,7 +156,7 @@ public class ChunkManager : MonoBehaviour
             tris.Add(vertCount - 2);
             tris.Add(vertCount - 4);
         }
-        if (z < size || blocks[x, y, z - size] == null)
+        if (z < size || getBlock(x, y, z - size) == null)
         {
             vertices.Add(new Vector3(x , y, z));
             vertices.Add(new Vector3(x, y + size, z));
@@ -171,7 +174,7 @@ public class ChunkManager : MonoBehaviour
             tris.Add(vertCount - 2);
             tris.Add(vertCount - 1);
         }
-        if (z > WorldManager.chunkSize - size - 1|| blocks[x, y, z + size] == null)
+        if (z > WorldManager.chunkSize - size - 1|| getBlock(x, y, z + size) == null)
         {
             vertices.Add(new Vector3(x + size, y, z + size));
             vertices.Add(new Vector3(x + size, y + size, z + size));
@@ -193,13 +196,13 @@ public class ChunkManager : MonoBehaviour
 
     public Block getBlock(int x, int y, int z)
     {
-        if (x < 0 || x >= blocks.GetLength(0)
-            || y < 0 || y >= blocks.GetLength(1)
-            || z < 0 || z >= blocks.GetLength(2))
+        if (x < 0 || x >= WorldManager.chunkSize
+            || y < 0 || y >= WorldManager.chunkSize
+            || z < 0 || z >= WorldManager.chunkSize )
         {
             return null;
         }
-        return blocks[x, y, z];
+        return blocks[x * WorldManager.chunkSize * WorldManager.chunkSize + y * WorldManager.chunkSize + z];
     }
 
     public Block getBlock(Vector3Int pos)

@@ -14,6 +14,7 @@ public class WorldManager : MonoBehaviour
     [SerializeField]
     private Grid grid;
     private Dictionary<long, ChunkManager> loadedChunks = new Dictionary<long, ChunkManager>();
+    private Queue<ChunkManager> chunkPool = new Queue<ChunkManager>(128);
 
     public void Start()
     {
@@ -24,7 +25,6 @@ public class WorldManager : MonoBehaviour
 
     IEnumerator MapLoadingCoroutine()
     {
-        Queue<ChunkManager> chunkPool = new Queue<ChunkManager>();
         while (true)
         {
             float startTime = Time.realtimeSinceStartup;
