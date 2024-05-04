@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class WorldManager : MonoBehaviour
 {
-    public const int chunkSize = 32;
+    public const int chunkSize = 16;
     public const int renderDist = 48;
     public const float maxFrameLength = 0.02f;
     [SerializeField]

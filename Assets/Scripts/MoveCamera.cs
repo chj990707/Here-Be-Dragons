@@ -4,9 +4,10 @@ using UnityEngine;
 
 public class MoveCamera : MonoBehaviour
 {
+    public Camera mainCamera;
     // Update is called once per frame
     void Update()
     {
-        gameObject.transform.position += new Vector3(20, 0, 20) * Time.deltaTime;
+        mainCamera.transform.rotation = Quaternion.Euler(new Vector3(15, -Time.realtimeSinceStartup / Mathf.PI * 12f, 0));
     }
 }
