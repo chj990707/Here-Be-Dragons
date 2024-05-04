@@ -257,8 +257,6 @@ public partial class ChunkMeshGenerateSystem : SystemBase
         {
             MetaChunkComponent metaChunkComponent = EntityManager.GetComponentData<MetaChunkComponent>(entitiesNeeded[i]);
             NativeArray<ChunkElement> chunkElements = EntityManager.GetBuffer<ChunkElement>(entitiesNeeded[i]).ToNativeArray(Allocator.Temp);
-            NativeArray<JobHandle> innerJobHandles = new NativeArray<JobHandle>(512, Allocator.Persistent);
-            NativeArray<ChunkInnerMeshJob> innerJobs = new NativeArray<ChunkInnerMeshJob>(512, Allocator.Persistent);
             NativeArray<Face> faces = new NativeArray<Face>(6 * 512 * 512, Allocator.Persistent);
             NativeList<BlockElement> blockArray = new NativeList<BlockElement>(Allocator.Temp);
             for (int j = 0; j < chunkElements.Length; j++)
