@@ -14,6 +14,7 @@ public partial class MetaChunkLoadSystem : SystemBase
     MetaChunkLoaderComponent chunkLoaderComponent;
     private Entity[] subSceneEntity = new Entity[1000];
     private int delay = 0;
+    private int renderDiameter = 10;
 
     [BurstCompile]
     protected override void OnCreate()
@@ -23,15 +24,17 @@ public partial class MetaChunkLoadSystem : SystemBase
     protected override void OnStartRunning()
     {
         chunkLoaderComponent = SystemAPI.GetSingleton<MetaChunkLoaderComponent>();
-        for(int i = 0; i < 1000; i++)
+        for(int i = 0; i < subSceneEntity.Length; i++)
         {
-            subSceneEntity[i] = LoadMetaChunk(chunkLoaderComponent.GUID, new float3(64 * (i / 100), 64 * (i / 10 % 10), 64 * (i % 10)));
+            subSceneEntity[i] = LoadMetaChunk(chunkLoaderComponent.GUID, new float3(64 * (i / renderDiameter / renderDiameter), 64 * (i / renderDiameter % renderDiameter), 64 * (i % renderDiameter)));
         }
     }
 
+    [BurstCompile]
     protected override void OnUpdate()
     {
-        if (delay < 400)
+        /*
+        if (delay < 1000)
         {
             delay++;
             return;
@@ -43,10 +46,11 @@ public partial class MetaChunkLoadSystem : SystemBase
             None = new ComponentType[] { typeof(RenderNeededComponent) }
         });
         NativeArray<Entity> refreshChunk = refreshquery.ToEntityArray(Allocator.Temp);
-        if (refreshChunk.Length > 0)
+        for(int i = 0; i < refreshChunk.Length && i < 10; i++)
         {
-            EntityManager.AddComponent<RenderNeededComponent>(refreshChunk[0]);
+            EntityManager.AddComponent<RenderNeededComponent>(refreshChunk[i]);
         }
+        */
     }
     [BurstCompile]
     private Entity LoadMetaChunk(Unity.Entities.Hash128 hash, float3 offset)
@@ -66,6 +70,7 @@ public partial class MetaChunkLoadSystem : SystemBase
         EntityManager.AddComponentData(entityScene, postLoadCommandBuffer);
         return entityScene;
     }
+    [BurstCompile]
     private void UnloadMetaChunk(SubScene subScene)
     {
         SceneSystem.UnloadScene(World.Unmanaged, subScene.SceneGUID);

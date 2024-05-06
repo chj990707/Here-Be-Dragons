@@ -5,16 +5,21 @@ using Unity.Mathematics;
 using Unity.Jobs;
 using Unity.Rendering;
 using UnityEngine.Rendering;
-using System.Collections.Generic;
 using Unity.Burst;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Entities.UniversalDelegates;
 
 [BurstCompile]
 public partial class ChunkMeshGenerateSystem : SystemBase
 {
     private EntityQuery queryNeeded;
-    private List<ChunkDraw> drawList;
+    private JobHandle innerMeshJobHandle;
+    private JobHandle combineJobHandle;
+    private Entity metaChunkEntity;
+    private Material material;
+    public NativeList<BlockElement> blocks;
+    private NativeList<float3> verts;
+    private NativeList<float2> uvs;
+    private NativeList<int> tris;
+    private NativeArray<bool> faces;
 
     public struct Face
     {
@@ -28,161 +33,113 @@ public partial class ChunkMeshGenerateSystem : SystemBase
     public struct ChunkInnerMeshJob : IJobParallelFor
     {
         [ReadOnly]
-        public NativeArray<BlockElement> blocks;
+        public NativeList<BlockElement> blocks;
         [NativeDisableParallelForRestriction]
-        public NativeArray<Face> faces;
+        public NativeArray<bool> faces;
         public void Execute(int index)
         {
-            if (blocks[index].value < 0) return;
-            int3 pos = IndexToPos(index % 512);
-            int3 chunkPos = IndexToPos(index / 512);
+            int3 pos = IndexToChunkPos(index % 512);
             int chunkStartIndex = index - index % 512;
-            if (pos.x < 1 || blocks[chunkStartIndex + PosToIndex(pos.x - 1, pos.y, pos.z)].value < 0)
-            {
-                faces[index * 6] = new Face
-                {
-                    draw = true,
-                    vert1 = new float3(chunkPos.x * 8 + pos.x    , chunkPos.y * 8 + pos.y    , chunkPos.z * 8 + pos.z),
-                    vert2 = new float3(chunkPos.x * 8 + pos.x    , chunkPos.y * 8 + pos.y    , chunkPos.z * 8 + pos.z + 1),
-                    vert3 = new float3(chunkPos.x * 8 + pos.x    , chunkPos.y * 8 + pos.y + 1, chunkPos.z * 8 + pos.z + 1),
-                    vert4 = new float3(chunkPos.x * 8 + pos.x    , chunkPos.y * 8 + pos.y + 1, chunkPos.z * 8 + pos.z),
-                };
-            }
-            if (pos.x > 6 || blocks[chunkStartIndex + PosToIndex(pos.x + 1, pos.y, pos.z)].value < 0)
-            {
-                faces[index * 6 + 1] = new Face
-                {
-                    draw = true,
-                    vert1 = new float3(chunkPos.x * 8 + pos.x + 1, chunkPos.y * 8 + pos.y    , chunkPos.z * 8 + pos.z),
-                    vert2 = new float3(chunkPos.x * 8 + pos.x + 1, chunkPos.y * 8 + pos.y + 1, chunkPos.z * 8 + pos.z),
-                    vert3 = new float3(chunkPos.x * 8 + pos.x + 1, chunkPos.y * 8 + pos.y + 1, chunkPos.z * 8 + pos.z + 1),
-                    vert4 = new float3(chunkPos.x * 8 + pos.x + 1, chunkPos.y * 8 + pos.y    , chunkPos.z * 8 + pos.z + 1),
-                };
-            }
-            if (pos.y < 1 || blocks[chunkStartIndex + PosToIndex(pos.x, pos.y - 1, pos.z)].value < 0)
-            {
-                faces[index * 6 + 2] = new Face
-                {
-                    draw = true,
-                    vert1 = new float3(chunkPos.x * 8 + pos.x    , chunkPos.y * 8 + pos.y    , chunkPos.z * 8 + pos.z),
-                    vert2 = new float3(chunkPos.x * 8 + pos.x + 1, chunkPos.y * 8 + pos.y    , chunkPos.z * 8 + pos.z),
-                    vert3 = new float3(chunkPos.x * 8 + pos.x + 1, chunkPos.y * 8 + pos.y    , chunkPos.z * 8 + pos.z + 1),
-                    vert4 = new float3(chunkPos.x * 8 + pos.x    , chunkPos.y * 8 + pos.y    , chunkPos.z * 8 + pos.z + 1),
-                };
-            }
-            if (pos.y > 6 || blocks[chunkStartIndex + PosToIndex(pos.x, pos.y + 1, pos.z)].value < 0)
-            {
-                faces[index * 6 + 3] = new Face
-                {
-                    draw = true,
-                    vert1 = new float3(chunkPos.x * 8 + pos.x    , chunkPos.y * 8 + pos.y + 1, chunkPos.z * 8 + pos.z),
-                    vert2 = new float3(chunkPos.x * 8 + pos.x    , chunkPos.y * 8 + pos.y + 1, chunkPos.z * 8 + pos.z + 1),
-                    vert3 = new float3(chunkPos.x * 8 + pos.x + 1, chunkPos.y * 8 + pos.y + 1, chunkPos.z * 8 + pos.z + 1),
-                    vert4 = new float3(chunkPos.x * 8 + pos.x + 1, chunkPos.y * 8 + pos.y + 1, chunkPos.z * 8 + pos.z),
-                };
-            }
-            if (pos.z < 1 || blocks[chunkStartIndex + PosToIndex(pos.x, pos.y, pos.z - 1)].value < 0)
-            {
-                faces[index * 6 + 4] = new Face
-                {
-                    draw = true,
-                    vert1 = new float3(chunkPos.x * 8 + pos.x + 1, chunkPos.y * 8 + pos.y    , chunkPos.z * 8 + pos.z),
-                    vert2 = new float3(chunkPos.x * 8 + pos.x    , chunkPos.y * 8 + pos.y    , chunkPos.z * 8 + pos.z),
-                    vert3 = new float3(chunkPos.x * 8 + pos.x    , chunkPos.y * 8 + pos.y + 1, chunkPos.z * 8 + pos.z),
-                    vert4 = new float3(chunkPos.x * 8 + pos.x + 1, chunkPos.y * 8 + pos.y + 1, chunkPos.z * 8 + pos.z),
-                };
-            }
-            if (pos.z > 6 || blocks[chunkStartIndex + PosToIndex(pos.x, pos.y, pos.z + 1)].value < 0)
-            {
-                faces[index * 6 + 5] = new Face
-                {
-                    draw = true,
-                    vert1 = new float3(chunkPos.x * 8 + pos.x + 1, chunkPos.y * 8 + pos.y    , chunkPos.z * 8 + pos.z + 1),
-                    vert2 = new float3(chunkPos.x * 8 + pos.x + 1, chunkPos.y * 8 + pos.y + 1, chunkPos.z * 8 + pos.z + 1),
-                    vert3 = new float3(chunkPos.x * 8 + pos.x    , chunkPos.y * 8 + pos.y + 1, chunkPos.z * 8 + pos.z + 1),
-                    vert4 = new float3(chunkPos.x * 8 + pos.x    , chunkPos.y * 8 + pos.y    , chunkPos.z * 8 + pos.z + 1),
-                };
-            }
+            faces[index * 6    ] = blocks[index].value >= 0 && (pos.x < 1 || blocks[chunkStartIndex + PosToChunkIndex(pos.x - 1, pos.y, pos.z)].value < 0);
+            faces[index * 6 + 1] = blocks[index].value >= 0 && (pos.x > 6 || blocks[chunkStartIndex + PosToChunkIndex(pos.x + 1, pos.y, pos.z)].value < 0);
+            faces[index * 6 + 2] = blocks[index].value >= 0 && (pos.y < 1 || blocks[chunkStartIndex + PosToChunkIndex(pos.x, pos.y - 1, pos.z)].value < 0);
+            faces[index * 6 + 3] = blocks[index].value >= 0 && (pos.y > 6 || blocks[chunkStartIndex + PosToChunkIndex(pos.x, pos.y + 1, pos.z)].value < 0);
+            faces[index * 6 + 4] = blocks[index].value >= 0 && (pos.z < 1 || blocks[chunkStartIndex + PosToChunkIndex(pos.x, pos.y, pos.z - 1)].value < 0);
+            faces[index * 6 + 5] = blocks[index].value >= 0 && (pos.z > 6 || blocks[chunkStartIndex + PosToChunkIndex(pos.x, pos.y, pos.z + 1)].value < 0);
         }
     }
+    [BurstCompile]
     public struct ChunkMeshCombineJob : IJob
     {
-        public NativeArray<Face> faces;
+        public NativeArray<bool> faces;
         public NativeList<float3> verts;
         public NativeList<float2> uvs;
         public NativeList<int> tris;
+        [BurstCompile]
         public void Execute()
         {
             for (int i = 0; i < faces.Length; i++)
             {
-                int3 chunkPos = IndexToPos(i / 6 / 512);
-                int3 blockPos = IndexToPos(i / 6 % 512);
-                if (i % 6 == 0 && blockPos.x == 0 && chunkPos.x != 0)
+                int3 metaChunkPos = IndexToMetaChunkPos(i / 6);
+                if(i % 6 == 1 && metaChunkPos.x % 8 == 7 && metaChunkPos.x < 63)
                 {
-                    int block_x_minus = (PosToIndex(chunkPos.x - 1, chunkPos.y, chunkPos.z) * 512 + PosToIndex(7, blockPos.y, blockPos.z)) * 6 + 1;
-                    if (faces[block_x_minus].draw && faces[i].draw)
+                    if (faces[i] && faces[MetaChunkPosToIndex(metaChunkPos.x + 1, metaChunkPos.y, metaChunkPos.z) * 6])
                     {
-                        faces[block_x_minus] = new Face { draw = false };
-                        faces[i] = new Face { draw = false };
+                        faces[i] = false;
+                        faces[MetaChunkPosToIndex(metaChunkPos.x + 1, metaChunkPos.y, metaChunkPos.z) * 6] = false;
                     }
                 }
-                if (i % 6 == 2 && blockPos.y == 0 && chunkPos.y != 0)
+                if (i % 6 == 3 && metaChunkPos.y % 8 == 7 && metaChunkPos.y < 63)
                 {
-                    int block_y_minus = (PosToIndex(chunkPos.x, chunkPos.y - 1, chunkPos.z) * 512 + PosToIndex(blockPos.x, 7, blockPos.z)) * 6 + 3;
-                    if (faces[block_y_minus].draw && faces[i].draw)
+                    if (faces[i] && faces[MetaChunkPosToIndex(metaChunkPos.x, metaChunkPos.y + 1, metaChunkPos.z) * 6 + 2])
                     {
-                        faces[block_y_minus] = new Face { draw = false };
-                        faces[i] = new Face { draw = false };
+                        faces[i] = false;
+                        faces[MetaChunkPosToIndex(metaChunkPos.x, metaChunkPos.y + 1, metaChunkPos.z) * 6 + 2] = false;
                     }
                 }
-                if (i % 6 == 4 && blockPos.z == 0 && chunkPos.z != 0)
+                if (i % 6 == 5 && metaChunkPos.z % 8 == 7 && metaChunkPos.z < 63)
                 {
-                    int block_z_minus = (PosToIndex(chunkPos.x, chunkPos.y, chunkPos.z - 1) * 512 + PosToIndex(blockPos.x, blockPos.y, 7)) * 6 + 5;
-                    if (faces[block_z_minus].draw && faces[i].draw)
+                    if (faces[i] && faces[MetaChunkPosToIndex(metaChunkPos.x, metaChunkPos.y, metaChunkPos.z + 1) * 6 + 4])
                     {
-                        faces[block_z_minus] = new Face { draw = false };
-                        faces[i] = new Face { draw = false };
+                        faces[i] = false;
+                        faces[MetaChunkPosToIndex(metaChunkPos.x, metaChunkPos.y, metaChunkPos.z + 1) * 6 + 4] = false;
                     }
                 }
-                if (i % 6 == 1 && blockPos.x == 7 && chunkPos.x != 7)
+            }
+            for(int i = 0; i < faces.Length; i++)
+            {
+                if (faces[i])
                 {
-                    int block_x_plus = (PosToIndex(chunkPos.x + 1, chunkPos.y, chunkPos.z) * 512 + PosToIndex(0, blockPos.y, blockPos.z)) * 6;
-                    if (faces[block_x_plus].draw && faces[i].draw)
-                    {
-                        faces[block_x_plus] = new Face { draw = false };
-                        faces[i] = new Face { draw = false };
-                    }
-                }
-                if (i % 6 == 3 && blockPos.y == 7 && chunkPos.y != 7)
-                {
-                    int block_y_plus = (PosToIndex(chunkPos.x, chunkPos.y + 1, chunkPos.z) * 512 + PosToIndex(blockPos.x, 0, blockPos.z)) * 6 + 2;
-                    if (faces[block_y_plus].draw && faces[i].draw)
-                    {
-                        faces[block_y_plus] = new Face { draw = false };
-                        faces[i] = new Face { draw = false };
-                    }
-                }
-                if (i % 6 == 5 && blockPos.z == 7 && chunkPos.z != 7)
-                {
-                    int block_z_plus = (PosToIndex(chunkPos.x, chunkPos.y, chunkPos.z + 1) * 512 + PosToIndex(blockPos.x, blockPos.y, 0)) * 6 + 4;
-                    if (faces[block_z_plus].draw && faces[i].draw)
-                    {
-                        faces[block_z_plus] = new Face { draw = false };
-                        faces[i] = new Face { draw = false };
-                    }
-                }
-                if (faces[i].draw)
-                {
-                    DrawFace(faces[i]);
+                    DrawFace(i);
                 }
             }
         }
-        private void DrawFace(Face face)
+        [BurstCompile]
+        private void DrawFace(int index)
         {
-            verts.Add(face.vert1);
-            verts.Add(face.vert2);
-            verts.Add(face.vert3);
-            verts.Add(face.vert4);
+            int3 blockOrigin = IndexToMetaChunkPos(index / 6);
+            switch (index % 6)
+            {
+                case 0:
+                    verts.Add(new float3(blockOrigin.x    , blockOrigin.y    , blockOrigin.z));
+                    verts.Add(new float3(blockOrigin.x    , blockOrigin.y    , blockOrigin.z + 1));
+                    verts.Add(new float3(blockOrigin.x    , blockOrigin.y + 1, blockOrigin.z + 1));
+                    verts.Add(new float3(blockOrigin.x    , blockOrigin.y + 1, blockOrigin.z));
+                    break;
+                case 1:
+                    verts.Add(new float3(blockOrigin.x + 1, blockOrigin.y    , blockOrigin.z));
+                    verts.Add(new float3(blockOrigin.x + 1, blockOrigin.y + 1, blockOrigin.z));
+                    verts.Add(new float3(blockOrigin.x + 1, blockOrigin.y + 1, blockOrigin.z + 1));
+                    verts.Add(new float3(blockOrigin.x + 1, blockOrigin.y    , blockOrigin.z + 1));
+                    break;
+                case 2:
+                    verts.Add(new float3(blockOrigin.x    , blockOrigin.y    , blockOrigin.z));
+                    verts.Add(new float3(blockOrigin.x + 1, blockOrigin.y    , blockOrigin.z));
+                    verts.Add(new float3(blockOrigin.x + 1, blockOrigin.y    , blockOrigin.z + 1));
+                    verts.Add(new float3(blockOrigin.x    , blockOrigin.y    , blockOrigin.z + 1));
+                    break;
+                case 3:
+                    verts.Add(new float3(blockOrigin.x    , blockOrigin.y + 1, blockOrigin.z));
+                    verts.Add(new float3(blockOrigin.x    , blockOrigin.y + 1, blockOrigin.z + 1));
+                    verts.Add(new float3(blockOrigin.x + 1, blockOrigin.y + 1, blockOrigin.z + 1));
+                    verts.Add(new float3(blockOrigin.x + 1, blockOrigin.y + 1, blockOrigin.z));
+                    break;
+                case 4:
+                    verts.Add(new float3(blockOrigin.x + 1, blockOrigin.y    , blockOrigin.z));
+                    verts.Add(new float3(blockOrigin.x    , blockOrigin.y    , blockOrigin.z));
+                    verts.Add(new float3(blockOrigin.x    , blockOrigin.y + 1, blockOrigin.z));
+                    verts.Add(new float3(blockOrigin.x + 1, blockOrigin.y + 1, blockOrigin.z));
+                    break;
+                case 5:
+                    verts.Add(new float3(blockOrigin.x + 1, blockOrigin.y    , blockOrigin.z + 1));
+                    verts.Add(new float3(blockOrigin.x  + 1, blockOrigin.y + 1, blockOrigin.z + 1));
+                    verts.Add(new float3(blockOrigin.x    , blockOrigin.y + 1, blockOrigin.z + 1));
+                    verts.Add(new float3(blockOrigin.x    , blockOrigin.y    , blockOrigin.z + 1));
+                    break;
+                default:
+                    Debug.Log("This shouldn't happen!");
+                    break;
+            }
             uvs.Add(new float2(0, 0));
             uvs.Add(new float2(0, 1));
             uvs.Add(new float2(1, 1));
@@ -196,11 +153,26 @@ public partial class ChunkMeshGenerateSystem : SystemBase
             tris.Add(vertCount - 1);
         }
     }
-    private static int PosToIndex(int x, int y, int z)
+    private static int PosToChunkIndex(int x, int y, int z)
     {
         return x * 64 + y * 8 + z;
     }
-    private static int3 IndexToPos(int index)
+
+    private static int MetaChunkPosToIndex(int x, int y, int z)
+    {
+        int chunkIndex = PosToChunkIndex(x / 8, y / 8, z / 8) * 512;
+        int blockIndex = PosToChunkIndex(x % 8, y % 8, z % 8);
+        return chunkIndex + blockIndex;
+    }
+
+    private static int3 IndexToMetaChunkPos(int index)
+    {
+        int3 chunkPos = IndexToChunkPos(index / 512) * 8;
+        int3 blockPos = IndexToChunkPos(index % 512);
+        return chunkPos + blockPos;
+    }
+
+    private static int3 IndexToChunkPos(int index)
     {
         return new int3(index / 64, index / 8 % 8, index % 8);
     }
@@ -209,75 +181,87 @@ public partial class ChunkMeshGenerateSystem : SystemBase
     protected override void OnCreate()
     {
         queryNeeded = GetEntityQuery(typeof(RenderNeededComponent));
-        drawList = new List<ChunkDraw>();
+        blocks = new NativeList<BlockElement>(512 * 512, Allocator.Persistent);
+        verts = new NativeList<float3>(6 * 4 * 512 * 512, Allocator.Persistent);
+        uvs = new NativeList<float2>(6 * 4 * 512 * 512, Allocator.Persistent);
+        tris = new NativeList<int>(6 * 6 * 512 * 512, Allocator.Persistent);
+        faces = new NativeArray<bool>(6 * 512 * 512, Allocator.Persistent);
     }
 
     [BurstCompile]
     protected override void OnUpdate()
     {
         EntitiesGraphicsSystem egs = World.GetOrCreateSystemManaged<EntitiesGraphicsSystem>();
-        for(int i = 0; i < drawList.Count;)
+        if(combineJobHandle.IsCompleted)
         {
-            if (!drawList[i].combineJobHandle.IsCompleted)
-            { 
-                i++;
-                continue;
-            }
-            drawList[i].innerMeshJobHandle.Complete();
-            drawList[i].innerMeshJob.blocks.Dispose();
-            JobHandle combineJobHandle = drawList[i].combineJobHandle;
-            ChunkMeshCombineJob combineJob = drawList[i].combinejob;
-            combineJobHandle.Complete();
-            if (combineJob.verts.Length > 0)
+            if (EntityManager.Exists(metaChunkEntity))
             {
-                Mesh mesh = new Mesh();
-                mesh.indexFormat = IndexFormat.UInt32;
-                mesh.SetVertices(combineJob.verts.ToArray(Allocator.Temp));
-                mesh.SetUVs(1, combineJob.uvs.ToArray(Allocator.Temp));
-                mesh.SetTriangles(combineJob.tris.ToArray(Allocator.Temp).ToArray(), 0);
-                mesh.RecalculateNormals();
-                mesh.RecalculateBounds();
-                BatchMeshID meshID = egs.RegisterMesh(mesh);
-                BatchMaterialID materialID = egs.RegisterMaterial(drawList[i].material);
-                EntityManager.SetComponentData(drawList[i].metaChunkEntity, new MaterialMeshInfo { MeshID = meshID, MaterialID = materialID });
-                EntityManager.SetComponentData(drawList[i].metaChunkEntity, new RenderBounds { Value = new AABB { Center = new float3(32, 32, 32), Extents = new float3(64, 64, 64) } });
+                innerMeshJobHandle.Complete();
+                combineJobHandle.Complete();
+                if (verts.Length > 0)
+                {
+                    Mesh mesh = new Mesh();
+                    mesh.indexFormat = IndexFormat.UInt32;
+                    mesh.SetVertices(verts.ToArray(Allocator.Temp));
+                    mesh.SetUVs(1, uvs.ToArray(Allocator.Temp));
+                    mesh.SetTriangles(tris.ToArray(Allocator.Temp).ToArray(), 0);
+                    mesh.RecalculateNormals();
+                    mesh.RecalculateBounds();
+                    BatchMeshID meshID = egs.RegisterMesh(mesh);
+                    BatchMaterialID materialID = egs.RegisterMaterial(material);
+                    EntityManager.SetComponentData(metaChunkEntity, new MaterialMeshInfo { MeshID = meshID, MaterialID = materialID });
+                    EntityManager.SetComponentData(metaChunkEntity, new RenderBounds { Value = new AABB { Center = new float3(32, 32, 32), Extents = new float3(64, 64, 64) } });
+                }
+                else
+                {
+                    EntityManager.SetComponentEnabled<MaterialMeshInfo>(metaChunkEntity, false);
+                }
+                verts.Clear();
+                uvs.Clear();
+                tris.Clear();
             }
-            else
-            {
-                EntityManager.SetComponentEnabled<MaterialMeshInfo>(drawList[i].metaChunkEntity, false);
-            }
-            combineJob.verts.Dispose();
-            combineJob.uvs.Dispose();
-            combineJob.tris.Dispose();
-            combineJob.faces.Dispose();
-            drawList.RemoveAt(i);
+        }
+        else
+        {
+            return;
         }
         NativeArray<Entity> entitiesNeeded = queryNeeded.ToEntityArray(Allocator.Temp);
-        for (int i = 0; i < entitiesNeeded.Length; i++)
+        for (int i = 0; i < entitiesNeeded.Length && i < 1; i++)
         {
+            metaChunkEntity = entitiesNeeded[i];
             MetaChunkComponent metaChunkComponent = EntityManager.GetComponentData<MetaChunkComponent>(entitiesNeeded[i]);
+            material = metaChunkComponent.material;
+            blocks.Clear();
             NativeArray<ChunkElement> chunkElements = EntityManager.GetBuffer<ChunkElement>(entitiesNeeded[i]).ToNativeArray(Allocator.Temp);
-            NativeArray<Face> faces = new NativeArray<Face>(6 * 512 * 512, Allocator.Persistent);
-            NativeList<BlockElement> blockArray = new NativeList<BlockElement>(Allocator.Temp);
             for (int j = 0; j < chunkElements.Length; j++)
             {
                 DynamicBuffer<BlockElement> blockElements = EntityManager.GetBuffer<BlockElement>(chunkElements[j].chunkEntity);
                 NativeArray<BlockElement> chunkBlockArray = blockElements.ToNativeArray(Allocator.Temp);
-                blockArray.AddRange(chunkBlockArray);
+                blocks.AddRange(chunkBlockArray);
             }
-            ChunkInnerMeshJob innerMeshJob = new ChunkInnerMeshJob { blocks = blockArray.ToArray(Allocator.Persistent), faces = faces };
-            JobHandle innerMeshJobHandle = innerMeshJob.Schedule(512 * 512, 32);
+            ChunkInnerMeshJob innerMeshJob = new ChunkInnerMeshJob { blocks = blocks, faces = faces };
+            innerMeshJobHandle = innerMeshJob.Schedule(512 * 512, 32);
             ChunkMeshCombineJob combineJob = new ChunkMeshCombineJob
             {
                 faces = faces,
-                verts = new NativeList<float3>(6 * 4 * 512 * 512, Allocator.Persistent),
-                uvs = new NativeList<float2>(6 * 4 * 512 * 512, Allocator.Persistent),
-                tris = new NativeList<int>(6 * 6 * 512 * 512, Allocator.Persistent),
+                verts = verts,
+                uvs = uvs,
+                tris = tris,
             };
-            JobHandle combineJobHandle = combineJob.Schedule(innerMeshJobHandle); 
-            drawList.Add(new ChunkDraw { metaChunkEntity = entitiesNeeded[i], combinejob = combineJob, combineJobHandle = combineJobHandle, innerMeshJobHandle = innerMeshJobHandle, innerMeshJob = innerMeshJob, material = metaChunkComponent.material });
+            combineJobHandle = combineJob.Schedule(innerMeshJobHandle); 
+            EntityManager.RemoveComponent<RenderNeededComponent>(entitiesNeeded[i]);
         }
-        EntityManager.RemoveComponent<RenderNeededComponent>(entitiesNeeded);
+    }
+    [BurstCompile]
+    protected override void OnDestroy()
+    {
+        innerMeshJobHandle.Complete();
+        combineJobHandle.Complete();
+        verts.Dispose();
+        uvs.Dispose();
+        tris.Dispose();
+        blocks.Dispose();
+        faces.Dispose();
     }
 }
 
