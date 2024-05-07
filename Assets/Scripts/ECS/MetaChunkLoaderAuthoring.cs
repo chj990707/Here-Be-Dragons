@@ -1,4 +1,5 @@
 using Unity.Entities;
+using Unity.Entities.Serialization;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
@@ -13,11 +14,10 @@ public class MetaChunkLoaderAuthoring : MonoBehaviour
         public override void Bake(MetaChunkLoaderAuthoring authoring)
         {
             Entity entity = GetEntity(TransformUsageFlags.Dynamic);
-            string path = AssetDatabase.GetAssetPath(authoring.scene);
-            Unity.Entities.Hash128 guid = AssetDatabase.GUIDFromAssetPath(path);
+            EntitySceneReference sceneReference = new EntitySceneReference(authoring.scene);
             AddComponent(entity, new MetaChunkLoaderComponent
             {
-                GUID = guid
+                scene = sceneReference,
             });
         }
     }
@@ -26,7 +26,7 @@ public class MetaChunkLoaderAuthoring : MonoBehaviour
 
 public struct MetaChunkLoaderComponent : IComponentData
 {
-    public Unity.Entities.Hash128 GUID;
+    public EntitySceneReference scene;
 }
 
 public struct MetaChunkOffset : IComponentData

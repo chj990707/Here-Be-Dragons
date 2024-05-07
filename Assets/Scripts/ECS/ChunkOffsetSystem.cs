@@ -63,7 +63,7 @@ public partial class ChunkOffsetSystem : SystemBase
                         {
                             for(int k2 = 0; k2 < 8; k2++)
                             {
-                                EntityManager.GetBuffer<BlockElement>(chunkEntities[toIndex(i, j, k)]).Add(new BlockElement { value = (int)(Mathf.PerlinNoise((metaChunkOffset.x + i * 8 + i2) / 100f, (metaChunkOffset.z + k * 8 + k2) / 100f) * 100 - metaChunkOffset.y - j * 8 - j2 + 200) });
+                                EntityManager.GetBuffer<BlockElement>(chunkEntities[toIndex(i, j, k)]).Add(new BlockElement { value = (short)(Mathf.PerlinNoise((metaChunkOffset.x + i * 8 + i2) / 100f, (metaChunkOffset.z + k * 8 + k2) / 100f) * 100 - metaChunkOffset.y - j * 8 - j2 + 200) });
                             }
                         }
                     }

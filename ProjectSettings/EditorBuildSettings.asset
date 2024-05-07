@@ -4,5 +4,11 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/SampleSceneWithECS.unity
+    guid: 906a86bfa2090ce43b18951831076488
+  - enabled: 1
+    path: Assets/Scenes/MetaChunk.unity
+    guid: 37dbb84402a97124d854a46057a70487
   m_configObjects: {}

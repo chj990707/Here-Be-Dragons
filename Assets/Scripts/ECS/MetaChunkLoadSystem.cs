@@ -3,8 +3,8 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Scenes;
-using UnityEngine.LowLevel;
-using UnityEngine;
+using System.Collections.Generic;
+using Unity.Entities.Serialization;
 
 [BurstCompile]
 public partial class MetaChunkLoadSystem : SystemBase
@@ -12,9 +12,10 @@ public partial class MetaChunkLoadSystem : SystemBase
     private EntityQuery newRequests;
     private SceneSystem sceneSystem;
     MetaChunkLoaderComponent chunkLoaderComponent;
-    private Entity[] subSceneEntity = new Entity[1000];
-    private int delay = 0;
-    private int renderDiameter = 10;
+    private List<Entity> subSceneEntity = new List<Entity>();
+    public const int renderRadius = 5;
+    private int loadedChunks = 0;
+    private bool created = false;
 
     [BurstCompile]
     protected override void OnCreate()
@@ -23,42 +24,41 @@ public partial class MetaChunkLoadSystem : SystemBase
     [BurstCompile]
     protected override void OnStartRunning()
     {
-        chunkLoaderComponent = SystemAPI.GetSingleton<MetaChunkLoaderComponent>();
-        for(int i = 0; i < subSceneEntity.Length; i++)
-        {
-            subSceneEntity[i] = LoadMetaChunk(chunkLoaderComponent.GUID, new float3(64 * (i / renderDiameter / renderDiameter), 64 * (i / renderDiameter % renderDiameter), 64 * (i % renderDiameter)));
-        }
     }
 
     [BurstCompile]
     protected override void OnUpdate()
     {
-        /*
-        if (delay < 1000)
+        if (!created)
         {
-            delay++;
-            return;
+            if (SystemAPI.TryGetSingleton(out chunkLoaderComponent))
+            {
+                for (int i = 0; i < renderRadius * renderRadius * renderRadius * 8; i++)
+                {
+                    subSceneEntity.Add(LoadMetaChunk(chunkLoaderComponent.scene, new float3(64 * (i / (renderRadius * 2) / (renderRadius * 2) - renderRadius), 64 * (i / (renderRadius * 2) % (renderRadius * 2) - renderRadius), 64 * (i % (renderRadius * 2) - renderRadius))));
+                }
+                created = true;
+            }
         }
-        delay = 0;
-        EntityQuery refreshquery = GetEntityQuery(new EntityQueryDesc
+        for(int i = 0; i < subSceneEntity.Count; i++)
         {
-            All = new ComponentType[] { typeof(MetaChunkComponent) },
-            None = new ComponentType[] { typeof(RenderNeededComponent) }
-        });
-        NativeArray<Entity> refreshChunk = refreshquery.ToEntityArray(Allocator.Temp);
-        for(int i = 0; i < refreshChunk.Length && i < 10; i++)
-        {
-            EntityManager.AddComponent<RenderNeededComponent>(refreshChunk[i]);
+            if (SceneSystem.IsSceneLoaded(World.Unmanaged, subSceneEntity[i]))
+            {
+                subSceneEntity.RemoveAt(i);
+            }
+            else
+            {
+                i++;
+            }
         }
-        */
     }
     [BurstCompile]
-    private Entity LoadMetaChunk(Unity.Entities.Hash128 hash, float3 offset)
+    private Entity LoadMetaChunk(EntitySceneReference sceneReference, float3 offset)
     {
         SceneSystem.LoadParameters loadParameters = new SceneSystem.LoadParameters() { 
             Flags = SceneLoadFlags.NewInstance
         };
-        Entity entityScene = SceneSystem.LoadSceneAsync(World.Unmanaged, hash, loadParameters);
+        Entity entityScene = SceneSystem.LoadSceneAsync(World.Unmanaged, sceneReference, loadParameters);
         EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Persistent, PlaybackPolicy.MultiPlayback);
         MetaChunkOffset metaChunkOffset = new MetaChunkOffset() { offset = offset };
         Entity entity = ecb.CreateEntity();
@@ -74,5 +74,11 @@ public partial class MetaChunkLoadSystem : SystemBase
     private void UnloadMetaChunk(SubScene subScene)
     {
         SceneSystem.UnloadScene(World.Unmanaged, subScene.SceneGUID);
+    }
+
+    public int getChunksLoaded()
+    {
+        if (!created) return 0;
+        else return renderRadius * renderRadius * renderRadius * 8 - subSceneEntity.Count;
     }
 }

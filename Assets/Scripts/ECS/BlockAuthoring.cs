@@ -25,5 +25,5 @@ public struct BlockComponent : IComponentData
 
 public struct BlockElement : IBufferElementData
 {
-    public int value;
+    public short value;
 }
