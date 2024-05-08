@@ -10,6 +10,7 @@ using Unity.Physics;
 using Unity.VisualScripting;
 
 [BurstCompile]
+[UpdateInGroup(typeof(PresentationSystemGroup))]
 public partial class ChunkMeshGenerateSystem : SystemBase
 {
     private EntityQuery queryNeeded;

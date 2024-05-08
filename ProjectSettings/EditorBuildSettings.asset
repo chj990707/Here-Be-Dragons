@@ -6,9 +6,18 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/LoadingScene.unity
+    guid: 161266b1ad079e44cbaa798e0b45bae1
+  - enabled: 1
     path: Assets/Scenes/SampleSceneWithECS.unity
     guid: 906a86bfa2090ce43b18951831076488
   - enabled: 1
+    path: Assets/Scenes/PlayerScene.unity
+    guid: b5d91d01865f76e43ad531f39e6ed6a4
+  - enabled: 1
     path: Assets/Scenes/MetaChunk.unity
     guid: 37dbb84402a97124d854a46057a70487
+  - enabled: 1
+    path: Assets/Scenes/MetaChunkLoader.unity
+    guid: a702979a2b23dcc479915d8d37171526
   m_configObjects: {}
